@@ -1,0 +1,105 @@
+#! /bin/sh
+#
+# Copyright by The HDF Group.
+# All rights reserved.
+#
+# This file is part of h5check. The full h5check copyright notice,
+# including terms governing use, modification, and redistribution, is
+# contained in the file COPYING, which can be found at the root of the
+# source code distribution tree.  If you do not have access to this file,
+# you may request a copy from help@hdfgroup.org.
+
+# A script to reconfigure autotools for HDF5, and to recreate other
+# generated files specifc to HDF5.
+# If the paths of the autotools are not specified by the user, they
+# are hardcoded to point to their locations in AFS on HDF5 Linux machines.
+# Users can specify the locations of the autotools with the following
+# variables:
+# AUTOCONF, AUTOMAKE, ACLOCAL, AUTOHEADER should be the path to the
+# corresponding tools.
+# LIBTOOL_DIR should be the path to the base libtool directory;
+# $LIBTOOL_DIR/bin/libtool should invoke libtool, while
+# $LIBTOOL_DIR/share/aclocal needs to be included by aclocal.
+# Be very careful when specifying these tools manually!  There are a lot
+# of versions that can get confused (not even counting the m4 utility)!
+
+# HDF5 currently uses the following versions of the autotools:
+AUTOCONF_VERSION="autoconf (GNU Autoconf) 2.64"
+AUTOMAKE_VERSION="automake (GNU automake) 1.11"
+AUTOHEADER_VERSION="autoheader (GNU Autoconf) 2.64"
+ACLOCAL_VERSION="aclocal (GNU automake) 1.11"
+LIBTOOL_VERSION="(GNU libtool) 2.2.6"
+#
+# When upgrading automake's version, don't forget to also update its
+# helper utilities, especially depcomp.
+
+# If paths to autotools are not specified by the user, assume tools are
+# running on jam and set paths accordingly.
+if test -z ${AUTOCONF}; then
+  AUTOCONF=/mnt/hdf/packages/autoconf/autoconf-2.64/bin/autoconf
+fi
+if test -z ${AUTOMAKE}; then
+  AUTOMAKE=/mnt/hdf/packages/automake/automake-1.11/bin/automake-1.11
+fi
+if test -z ${AUTOHEADER}; then
+  AUTOHEADER=/mnt/hdf/packages/autoconf/autoconf-2.64/bin/autoheader
+fi
+if test -z ${ACLOCAL}; then
+  ACLOCAL=/mnt/hdf/packages/automake/automake-1.11/bin/aclocal-1.11
+fi
+if test -z ${LIBTOOL}; then
+  LIBTOOL=/mnt/hdf/packages/libtool/libtool-2.2.6a/bin/libtool
+fi
+
+# Check version numbers of all autotools against the "correct" versions
+AC_VERS=`${AUTOCONF} --version 2>&1 | grep "^${AUTOCONF_VERSION}"`
+if test -z "${AC_VERS}"; then
+   echo "${AUTOCONF} version is not ${AUTOCONF_VERSION}"
+   exit 1
+fi
+AM_VERS=`${AUTOMAKE} --version 2>&1 | grep "^${AUTOMAKE_VERSION}"`
+if test -z "${AM_VERS}"; then
+   echo "${AUTOMAKE} version is not ${AUTOMAKE_VERSION}"
+   exit 1
+fi
+AH_VERS=`${AUTOHEADER} --version 2>&1 | grep "^${AUTOHEADER_VERSION}"`
+if test -z "${AH_VERS}"; then
+   echo "${AUTOHEADER} version is not ${AUTOHEADER_VERSION}"
+   exit 1
+fi
+AL_VERS=`${ACLOCAL} --version 2>&1 | grep "^${ACLOCAL_VERSION}"`
+if test -z "${AL_VERS}"; then
+   echo "${ACLOCAL} version is not ${ACLOCAL_VERSION}"
+   exit 1
+fi
+LT_VERS=`${LIBTOOL} --version 2>&1 | grep "${LIBTOOL_VERSION}"`
+if test -z "${LT_VERS}"; then
+   echo "${LIBTOOL} version is not ${LIBTOOL_VERSION}"
+   exit 1
+fi
+
+# Make sure that the tools are in the path.
+
+AUTOCONF_DIR=`dirname ${AUTOCONF}`
+PATH=${AUTOCONF_DIR}:$PATH
+
+LIBTOOL_DIR=`dirname ${LIBTOOL}`
+
+# Run autoconf/automake commands in order
+  cmd="${ACLOCAL} -I ${LIBTOOL_DIR}/../share/aclocal"
+  echo $cmd
+  $cmd || exit 1
+
+  cmd="${AUTOHEADER}"
+  echo $cmd
+  $cmd || exit 1
+
+  cmd="${AUTOMAKE}"
+  echo $cmd
+  $cmd || exit 1
+
+  cmd="${AUTOCONF}"
+  echo $cmd
+  $cmd || exit 1
+
+exit 0

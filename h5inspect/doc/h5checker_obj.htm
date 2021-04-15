@@ -1,0 +1,260 @@
+<!-- NEW PAGE -->
+<!-- HEADER RIGHT "h5checker_obj" -->
+<hr>
+<dl>
+  <dt><div align=right><font color=999999 size=-1><i>
+      Last modified: 17 March 2010
+      </i></font></div>
+
+  <dt><strong>Name:</strong> <a name="API-FunctionName">h5checker_obj</a>
+  <dt><strong>Signature:</strong>
+    <dd><em>ck_err_t </em><code>h5checker_obj</code>(
+            <em>char * </em><code>fname</code>,
+            <em>ck_addr_t</em> <code>obj_addr</code>,
+            <em>ck_errmsg_t *</em><code>buff</code>
+        )
+
+  <p>
+  <dt><strong>Purpose:</strong>
+    <dd>Validates an object header.
+
+
+<!--__ *** MOTIVATION ********************************************  -->
+<!--__ This an OPTIONAL section for functions that may need more    -->
+<!--__ than the simple statement in "Purpose:" to enable a user     -->
+<!--__ to understand the situations that might call for this        -->
+<!--__ function's use and/or the types of problems it addresses.    -->
+<!--__                                                              -->
+<!--__ Update H5function_name and the motivation text.              -->
+<!--__ ***********************************************************  -->
+<!--
+  <p>
+  <dt><strong>Motivation:</strong>
+    <dd><code>h5checker_obj</code> 
+      is used in these circumstances to achieve these things and/or 
+      to address these problems.  
+      <p>
+      Keep it concise and high-level, but use multiple paragraphs 
+      if needed.
+-->
+
+
+<!--__ *** DESCRIPTION *******************************************  -->
+<!--__ The "Description" section provides a more detailed           -->
+<!--__ description of the function and instructions for its use.    -->
+<!--__                                                              -->
+<!--__ Update H5function_name and the description text.             -->
+<!--__ ***********************************************************  -->
+  <p>
+  <dt><strong>Description:</strong>
+    <dd><code>h5checker_obj</code> 
+      validates the object header of the HDF5 file <code>fname</code> 
+      at the address <code>obj_addr</code> according to the
+      <cite>HDF5 File Format Specification Version 1.1</cite>, 
+      section IV, &ldquo;Disk Format Level 2 - Data Objects.&rdquo;
+      <p>
+      <code>h5checker_obj</code> first opens the file, 
+      then reads and validates the superblock information. 
+      The validation of the superblock must succeed before
+      proceeding with validation of the specified object header.</p>
+      <p>
+      All the header messages embedded in the specified object header 
+      are checked. Addresses of the B-tree, object headers, and local heap 
+      in some header messages in the specified object header are also 
+      followed and validated.  
+      The file <code>fname</code> is closed when validation is complete.</p>
+      <p>
+      When <code>h5checker_obj</code> is called with an undefined 
+      <code>obj_addr (=CK_ADDR_UNDEF)</code>, the whole file is validated.</p>
+      <p>
+      When non-compliant errors are found in the object header and 
+      <code>buf</code> is non-null, <code>h5checker_obj</code> fills in 
+      the following data structure (defined in <code>h5check_public.h</code>)
+      for the errors:</p>
+      <p><pre>
+            #define CK_ADDR_UNDEF ((ck_addr_t)(-1))
+            #define NSLOTS   32              /* number of error records  */
+
+            typedef struct ck_errmsg_t {
+                int          nused;          /* number of error records  */
+                                             /*   currently in use       */
+                errmsg_t     slot[NSLOTS];   /* array of error records   */
+            } ck_errmsg_t;
+
+            typedef struct errmsg_t {
+                const char   *desc;          /* error message           */
+                ck_addr_t    addr;           /* logical address where   */
+                                             /*   error occurs          */
+            }errmsg_t;
+         </pre>
+    </dd></dt>
+
+  <p>
+  <dt><strong>Parameters:</strong>
+    <dd>
+    <table>
+      <tr valign="top">
+        <td><em>char *</em><code>fname</code>
+            </td><td>&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>IN: Name of the HDF5 file to be validated
+            </td></tr>
+      <tr valign="top">
+        <td><em>ck_addt_t</em>&nbsp;<code>obj_addr</code>
+            </td><td>&nbsp;</td>
+        <td>IN: Address of the object header to be validated
+            </td></tr>
+      <tr valign="top">
+        <td><em>ck_errmsg_t *</em><code>buff</code>
+            </td><td>&nbsp;</td>
+        <td>OUT: Buffer in which to return error information 
+            if there are errors
+            </td></tr>
+    </table>
+
+  <p>
+  <dt><strong>Returns:</strong>
+    <dd>Returns <code>0</code> (zero) if the object header is compliant.
+        Information in <code>buf</code> is undefined, if provided.
+        <p>
+        Returns a negative value if the object header is not compliant.
+        If <code>buf</code> is non-null, information about the error(s)
+        is filled in.
+
+
+<!--__ *** FAILURE MODES *****************************************  -->
+<!--__ Replace the text following the <dd> with a description       -->
+<!--__ of how the function may fail.                                -->
+<!--__ ***********************************************************  -->
+<!--
+  <p>
+  <dt><strong>Failure Modes:</strong>
+    <dd>List possible failure modes, with causes and ramifications,
+        paying particular attention to non-intuitive failures, 
+        unusual failure modes, and failures caused by the interaction 
+        of two or more functions.
+        <p>
+        In some cases, the possibe failures are obvious and/or trivial;
+        such cases can be kept simple.  On the other hand, don't be 
+        afraid to take several paragraphs for complex cases.
+-->
+
+
+<!--__ *** USAGE EXAMPLES ****************************************  -->
+<!--__ Multiple examples may be given.  Two are shown below and     -->
+<!--__ more can be added if needed (or one removed).                -->
+<!--__                                                              -->
+<!--__ Each usage example should have text describing the meanings  -->
+<!--__ of the parameters following the <dd> tag.                    -->
+<!--__ The sample usage line(s) should be entered between the       -->
+<!--__ <dir><pre> and </pre></dir> tags.                            -->
+<!--__ Multiple entries are separated by <p> tags.                  -->
+<!--__ ***********************************************************  -->
+<!--
+  <p>
+  <dt><strong>Example Usage:</strong>
+    <dd>Discuss the elements in the first usage example here.
+<dir><pre>
+Complete usage example line(s) for the first example here
+</pre></dir>
+    <p>
+
+    <dd>Discuss the elements in the second usage example here.
+<dir><pre>
+Complete usage example line(s) for the second example here
+</pre></dir>
+  <p>
+-->
+
+
+<!--__ *** FORTRAN90 INTERFACE  **********************************  -->
+<!--__ When the Fortran90 interface is complete, replace this       -->
+<!--__ section with the Fortran90 subroutine description.           -->
+<!--__                                                              -->
+<!--__ See the file h5fortran_f_insert.htm for a template and       -->
+<!--__ instructions.                                                -->
+<!--__ ***********************************************************  -->
+
+
+<!--__ *** SEE ALSO **********************************************  -->
+<!--__ Provide links to related documentation in the following      --> 
+<!--__ order:                                                       -->
+<!--__     related function descriptions                            -->
+<!--__     struct or ENUM descriptions                              -->
+<!--__     callback or operator function descriptions               -->
+<!--__     tool descriptions                                        -->
+<!--__     user guide sections                                      -->
+<!--__     other related documents or sections                      -->
+<!--__                                                              -->
+<!--__ Ask a member of the documentation team if you need help      -->
+<!--__ identifying or locating references.                          -->
+<!--__                                                              -->
+<!--__ Edit the sample links provided, and delete unneeded text.    -->
+<!--__ Use a <p> between types of documents.                        -->
+<!--__ ***********************************************************  -->
+<!--
+  <p>
+  <dt><strong>See Also:</strong>
+    <dd><a href="RM_H5D.html#Dataset-Create">
+        <code>H5Dcreate</code></a>,
+        &nbsp;
+        <a href="RM_H5T.html#Datatype-Commit">
+        <code>H5Tcommit</code></a>
+        <p>
+
+        <a href="H5L/H5L_elink_traverse_t">
+        <code>H5L_elink_traverse_t</code></a>
+        <p>
+
+        <a href="Tools.html#h5dump"><code>h5dump</code></a>
+        <p>
+
+        &ldquo;Discovering Objects in a Group&rdquo; in the
+        &ldquo;<a href="../UG/UG_frame09Groups.html">Groups</a>&rdquo; 
+        chapter of the
+        <a href="../UG/index.html"><cite>HDF5 User&rsquo;s Guide</cite></a>
+-->
+
+
+<!--__ *** HISTORY ***********************************************  -->
+<!--__ Provide information about the HDF5 library version where the -->
+<!--__ C function was first introduced, the Fortran subroutine was  -->
+<!--__ first introduced, and when major changes to the function     -->
+<!--__ or subroutine were made.                                     -->
+<!--__                                                              -->
+<!--__ Replace *.**.** below with the appropriate release number,   -->
+<!--__ e.g., '1.10.4'.                                              -->
+<!--__                                                              -->
+<!--__ There are several minor variations on what you might need    -->
+<!--__ to convey in the history section.  If you need assistance    -->
+<!--__ or your task is not described, speak with Frank.             -->
+<!--__ ***********************************************************  -->
+
+<!--__ ***********************************************************  -->
+<!--__ Do not modify the next 9 lines; they set up the table.       -->
+<!--__ ***********************************************************  -->
+<!--
+  <p>
+  <dt><strong>History:</strong>
+    <dd><table width="90%">
+        <tr>
+          <td valign="top" align="left" width="10%">
+            <strong>Release</strong>&nbsp;&nbsp;&nbsp;&nbsp;</td>
+          <td valign="top" align="left">
+            <strong>Change</strong></td>
+        </tr>
+-->
+
+<!--__ ***********************************************************  -->
+<!--__ Adding a new C function                                      -->
+<!--__ ***********************************************************  -->
+<!--
+        <tr>
+          <td valign="top">*.**.**</td>
+          <td valign="top">
+            C function introduced in this release.</td>
+        </tr>
+-->
+        </table>
+</dl>
+
+

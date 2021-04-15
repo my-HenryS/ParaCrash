@@ -1,0 +1,25 @@
+README
+------
+The current prototype for the test files generator is composed of the files:
+
+testgen.h
+testgen.c
+
+Installation
+------------
+make		Builds the testgen tool and runs it to generate the test files.
+./testgen	Generates all test files.
+make check	Runs all tests.
+
+
+Extra notes
+-----------
+The makefile uses h5cc to build the testgen tool by default.  If h5cc is not
+in your $PATH or you wish to build the tool differently (e.g., using a special
+version of h5cc or even your own "cc ... -lhdf5 ..." command), edit $CC in
+makefile.
+
+The test generator creates files and datasets with features available by default
+in the HDF5 library. To test features not included by default, the user must 
+define certain macros. For instance, to test the external filter szip, the user must define the macro HAVE_SZIP.
+

@@ -1,0 +1,90 @@
+HDF5 History
+============
+
+This file contains a history of the H5check releases.
+
+2.0          April	 2010
+
+
+
+==========================================================================    
+
+%%%2.0%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+This is V2.0 release of the HDF5 format checker.  This document describes the
+changes between releases.
+
+Changes since version "1.0-post0"
+=================================
+
+- 2010-04-19 by acheng
+    Ported to Solaris 10, 64bit.
+
+- 2010-03-24 by vchoi
+    Bug fix:
+	Fixed failure on "duty":
+	Free memory allocated for direct block after it was done.
+
+- 2010-03-17 by vchoi
+    1. Fix for chicago bug from master_REUTERS_ASIA.h5.bad:
+	Add callbacks to validate indexed group and indexed attribute messages
+    2. Add warnings for coding that is not implemented yet
+    3. Turn assert into a validation check in HF_man_read(): fix for
+	ahmcoef_aix.nc (from bug #1755)
+    4. Update version # to be the same format specification number
+    5. Some cleanup
+
+- 2010-01-06 by vchoi
+    Fixed bug for Chicago developers: duplicate symbol name and symbol name out of order.
+    Modified and cleaned up coding (particularly on error reporting).
+
+- 2009-09-14 by acheng
+    Bug fix:
+	Last mod to set H5CC does not work.
+	Need to fix it so that configure.ac will set and export the
+	hdf5 compile command variables and config/commence.am will
+	use them accordingly.
+
+- 2009-09-14 by acheng
+    Improvement:
+	prefix default (install directory) is /usr/local. This causes problem and sometimes
+	accidents during development stage when "make install" is tested.
+	Set prefix default (install directory) to a directory in the build area.
+	This also allows multiple src-dir builds within one host.
+
+- 2009-09-11 by acheng
+    Improve configure process:
+    Problem:
+    The package needs h5cc to compile the test generation program to generate
+    test files. Configure (config/commence.am) used to hardcode the h5cc tool
+    as in $bindir/h5cc which was rarely true.
+    Solution:
+    I changed it to just use "h5cc" which uses the bigger $PATH scope.
+    One can still use the old way of "make H5CC=$mypath/h5cc".
+
+- 2009-09-11 by acheng
+    Bug fix: ID 1650
+    Here is a quick list of the problems and actions I took.
+    These three files are installed by the current version:
+	bin/h5check    OK. Kept as is.
+
+	bin/testgen   	Incorrect since it generates test files and is not a
+			user tool.  I have removed it from the install list.
+
+	lib/libh5check.a  
+		  Though the implementation design provides the ability
+		  that this library can be used by user applications
+		  but it is pre-mature to install it because the
+		  related header file is not installed and no API
+		  definition document exists yet, I think. Therefore, I
+		  am removing it from the install list.
+
+- 2009-05-08 by vchoi
+    Fixed bug #1557: checked for null pointer in check_lheap() of h5checker.c.
+
+- 2008-07-10 by vchoi
+    Fixed a bug for 1.6: validate the # of messages.
+
+- 2008-04-15 by vchoi
+    1. src/h5checkerV2_0.c: fixed problem when decoding free-space section list.
+    2. test/testgen.c: some coding in progress (#ifdef NOTYET)

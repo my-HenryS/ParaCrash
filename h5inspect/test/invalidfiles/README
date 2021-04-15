@@ -1,0 +1,48 @@
+This is for all known invalid HDF5 files. h5check should reject them.
+
+invalid_sym.h5: file with duplicate and out-of-order symbols
+    a) Create a file which is the same as "rank_dsets_empty.h5"
+    b) Use "h5debug" to find the following information:
+	1) the heap location for root group symbol table entry
+	   -- h5debug invalid_sym.h5
+	2) the address of heap data 
+	   -- h5debug invalid_sym.h5 680
+	   -- the output indicates that the address of heap data is 9504
+    c) Use fwrite() to change the symbol "dataset_3" to "dataset_4" 
+
+invalid_grps.h5: file with invalid version in link message that resides in fractal heap
+    a) Create a file which is similar to "new_grat.h5"
+    b) Use "h5debug" to find the following information:
+	1) the root group object header address
+	   -- h5debug invalid_grps.h5
+	2) the fractal heap address in the link message
+	   -- h5debug invalid_sym.h5 48
+	3) the fractal heap's root address
+	   -- h5debug invalid_sym.h5 1718
+	4) the fractal heap's direct block address
+	   -- h5debug invalid_sym.h5 14339 1718 1
+	5) display the fractal heap's direct block
+	   -- h5debug invalid_sym.h5 13827 1718 512
+    c) Use fwrite() to change the version number of one link message in the
+	fractal heap direct block (13827+291=14118) to 0.
+    d) Use fwrite() to change the checksum of the fractal heap direct block
+	(13827+17=13844) from 1160659341 to 374212020.  This is done to
+	reflect the version change and to allow h5check to continue validating
+	the message so the expected error can occur.
+	
+ahmcoef_aix.nc
+    This is a file from bug #1755.
+
+corruptfile.h5
+    This is a corrupted file from bug #1557.
+
+vms_data.h5:
+    Imported from HDF5 v1.8 library. It contains new datatypes not
+    defined in current File Format.
+
+base_addr.h5:
+leaf_internal_k.h5:
+offsets_lengths.h5:
+sb_version.h5:
+signature.h5:
+    See invalid_files.doc.

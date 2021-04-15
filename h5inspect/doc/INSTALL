@@ -1,0 +1,39 @@
+Instructions for the Installation of H5check Software
+=====================================================
+
+========
+Build:
+========
+Assuming gcc, gmake and h5cc are in your $PATH, just do
+    % ./configure
+    % gmake
+
+The default compiler and HDF5 library compiler are set to gcc and h5cc.
+If you want to use a different C compiler and/or h5cc command, do
+    % gmake CC=gcc H5CC=$mypath/h5cc
+
+To set different compiler flags use CFLAGS variable, e.g.
+    % env CFLAGS=-O2 ./configure
+This command will set the compiling to "gcc -O2".
+
+============
+Run tests:
+============
+To run the test suite,
+    % gmake check
+
+==========
+Install:
+==========
+To install the tool and the library
+    % gmake install
+
+These go to h5check/{bin,lib} of the built directory by default.  If you want
+to install it somewhere else like /usr/software/{bin,lib},
+    % gmake prefix=/usr/software install
+
+=======
+Notes:
+=======
+If the h5check executable cannot handle files larger than 2GB, check for
+a solution in the known problems section of the file RELEASE.txt.
