@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+import os
+import signal
+import subprocess
+import colorama
+import time
+from colorama import Fore, Style
+
+from pfs_csg import CrashStateGenerator
+from pfs_config import run_config
+from config import config
+from pfs_utils import pfs_restore, pfs_start, pfs_stop, pfs_save, pfs_restart_clean, Pwrite, Truncate
+from pfs_record import pfs_record
+
+
+def prefix_comparison(pfs, prefix_dir):
+    prefixes = [os.path.join(prefix_dir, o) for o in os.listdir(prefix_dir) if os.path.isdir(os.path.join(prefix_dir, o))]
+    for prefix in prefixes:
+        #print(prefix)
+        output = subprocess.run("diff %s/ %s/" % (prefix, pfs.mount_point), shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        if output.returncode == 0:
+            return True
+    return False
+
+
+def pfs_check(pfs):
+    csg = CrashStateGenerator(pfs, config.result_dir)
+    err_f = open(config.errlog, "w")
+
+    if config.is_hdf5:
+        for syscall in filter(lambda o: isinstance(o, Pwrite), pfs.syscalls):
+            tag = pfs.obj_mapping.query(syscall)
+            err_f.write("%s %s\n" % (syscall.short(), tag))
+            err_f.flush()
+
+    global last_state
+    last_state = None
+    def __perform_crash(crash_state):
+        global last_state
+
+        # opt restart
+        blocklist = None  # list of names 
+        if config.is_inc and last_state != None:
+            num_diff_servers, _diff_servers = last_state.diff_servers(crash_state)
+            blocklist = [s.name for s in _diff_servers]
+
+        # execptions:
+        if pfs.fstype == "glusterfs":
+            for syscall in crash_state.syscalls:
+                if isinstance(syscall, Truncate):
+                    blocklist = None
+                    break
+
+        #print(blocklist)
+        #print(crash_state)
+        i = None
+        if last_state != None:
+            i = crash_state.contains(last_state)
+        
+        if config.is_inc and i != None:
+            print(blocklist)
+            pfs_stop(pfs, blocklist=blocklist)
+            crash_state.emulate(start=i, blocklist=blocklist)
+            pfs_start(pfs, blocklist=blocklist)
+        else:
+            pfs_stop(pfs, blocklist=blocklist)
+            pfs_restore(pfs, blocklist=blocklist)
+            crash_state.emulate(blocklist=blocklist)
+            # NOTE: no blocklist here, we have to replay metadata operations
+            #crash_state.emulate()
+            pfs_start(pfs, blocklist=blocklist)
+        # print(Fore.GREEN +'Test passed:' +Style.RESET_ALL+str(crash_state))
+        # #process = subprocess.call("pvfs2-fsck -m /orangefs -y -p", cwd=pfs.mount_point, shell=True)
+        # process = subprocess.call("tree .", cwd=pfs.mount_point, shell=True)
+        # return 0
+        try:
+            #time.sleep(10)
+            last_state = None
+            # exec here helps killing checker process when timeout
+            # subprocess.call("tree . && cat *", cwd=pfs.mount_point, shell=True)
+            process = subprocess.Popen("exec "+config.checker, cwd=pfs.mount_point, shell=True, stderr=subprocess.PIPE)
+            stdout, stderr = process.communicate(timeout=config.timeout)
+            #process = subprocess.run("exec "+config.checker, cwd=pfs.mount_point, shell=True, stderr=subprocess.PIPE)
+  
+            #print(stdout, stderr, process.returncode, pfs.mount_point)
+            if process.returncode != 0:
+                if config.verbose:
+                    print(Fore.RED + 'Test failed:' + Style.RESET_ALL+str(crash_state))
+                err_f.write("\n =========== "+str(crash_state)+" =========== \n")
+                err_f.write(stderr.decode())
+                err_f.flush()
+                if config.legal_replay:
+                    pfs_stop(pfs)
+                    pfs_restore(pfs)
+                    crash_state.emulate()
+                    pfs_start(pfs)
+                    if prefix_comparison(pfs, os.path.join(config.snapshot_dir, config.prefix_replay_dir)):
+                        if config.verbose:
+                            print(Fore.RED + 'Is Application Bug\n' + Style.RESET_ALL+str(crash_state))
+                        err_f.write("\n Is Application Bug \n")
+
+            else:
+                last_state = crash_state
+                if config.verbose:
+                    print(Fore.GREEN + 'Test passed:' + Style.RESET_ALL+str(crash_state))
+                else:
+                    err_f.write('Test passed:' + str(crash_state)+"\n")
+            return process.returncode
+
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            if config.verbose:
+                print("PFS Unavailable")
+                print(Fore.RED + 'Test failed:' + Style.RESET_ALL+str(crash_state))
+            pfs_restart_clean(pfs)
+            err_f.write("\n =========== "+str(crash_state)+" =========== \n")
+            err_f.write("PFS Unavailable")
+            return "PFS Unavailable"
+            # pfs_stop(pfs)
+            # pfs_restore(pfs, snapshot_dir)
+            # pfs_start(pfs)
+            # exit(0)
+
+        except KeyboardInterrupt:
+            process.kill()
+            pfs_restart_clean(pfs)
+            exit(0)
+
+    crash_states = csg.crash(crash_func=lambda cs: __perform_crash(cs))
+    pfs_stop(pfs)
+    pfs_restore(pfs)
+    pfs_start(pfs)
+
+    err_f.close()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--config-file', dest="config_file", required=True, help="pfs configuration file")
+    parser.add_argument('-d', '--work-dir',  dest="work_dir", required=True, help="workload directory")
+    parser.add_argument('-w', '--workload', default="bin/workload", help="workload executable")
+    parser.add_argument('-i', '--init', default="bin/init", help="initializer")
+    parser.add_argument('-c', '--checker', default="bin/checker", help="checker script")
+    parser.add_argument('-l', '--log', default=None, help="log")
+    parser.add_argument('-r', '--legal-replay', dest="legal_replay", action="store_true")  # legal replay
+    parser.add_argument('-t', '--timeout', default=4, help="timeout to consider PFS unavailability", type=int)
+    parser.add_argument('-m', '--mode', required=True,
+                        choices=['check', 'config', 'record', 'replay', 'restore'], help="running mode")
+    parser.add_argument('-v', '--verbose', dest="verbose", action='store_true')
+    parser.add_argument('-nv', '--non-verbose', dest="verbose", action='store_false')
+    parser.add_argument('-NR', '--non-restart', dest="restart", action='store_false')
+    parser.add_argument('-p', '--parallel', default=0, help='parallel workloads', type=int)
+    parser.add_argument("--recorder-path", dest="recorder_path",
+                        default="/home/jhsun/local/lib/librecorder.so", help="path to recorder lib")
+    parser.add_argument("--h5scan-path", dest="h5scan_path",
+                        default="/home/jhsun/software/PFScheck/h5scan/tool/h5check", help="path to h5scan exec")
+    parser.add_argument("-h5", "--hdf5", dest="is_hdf5", action='store_true')
+    parser.add_argument("-in", "--incremental", dest="is_inc", action='store_true')
+    parser.add_argument("-opt", "--optimized", dest="opt_explore", action='store_true')
+    parser.add_argument("-np", "--non-pruning", dest="pruning", action='store_false')
+    parser.add_argument("-nt", "--non-tracing", dest="tracing", action='store_false')
+
+    parser.set_defaults(verbose=True)  # verbose by default
+    parser.set_defaults(legal_replay=True)  # legal replay by default
+    parser.set_defaults(restart=True)  # restart PFS service by default
+    parser.set_defaults(is_hdf5=False)  # non-hdf5 workload by default
+    parser.set_defaults(is_inc=False)  # non incremental explore by default
+    parser.set_defaults(opt_explore=False)  # non optimized explore by default
+    parser.set_defaults(pruning=True)  # pruning by default
+    parser.set_defaults(tracing=True)  # tracing by default
+    args = parser.parse_args()
+
+    config.read_args(args=args)
+
+    if config.verbose:
+        print('Running in %s mode' % config.mode)
+
+    if config.mode == "config":
+        pfs = run_config()
+        pfs.build_fdtable()
+    
+
+    elif config.mode == "restore":
+        pfs = run_config()
+        pfs.build_fdtable()
+        #pfs_save(pfs, snapshot_dir)
+        pfs_stop(pfs)
+        pfs_restore(pfs)
+        pfs_start(pfs)
+
+    elif config.mode == "record":
+        pfs = pfs_record()
+
+    elif config.mode == "check":
+        pfs = pfs_record()
+        pfs_check(pfs)
