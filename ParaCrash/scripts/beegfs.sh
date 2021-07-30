@@ -24,6 +24,7 @@ do
 	sudo service beegfs-storage@node${i} start 
 done
 
+sudo service beegfs-client restart
 sudo beegfs-ctl --setpattern --chunksize=128k /mnt/beegfs
 
 set +x

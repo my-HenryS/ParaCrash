@@ -66,6 +66,7 @@ class Config:
 
         # experiment output directory
         self.result_dir = os.path.join(self.work_dir, "result/")
+        self.err_dir = os.path.join(self.result_dir, "errs/")
 
         if args.log == None:
             args.log = "%s_errs.log" % os.path.splitext(os.path.basename(self.config_file))[0]
@@ -83,13 +84,15 @@ class Config:
         assert(self.work_dir.strip() != "" and self.work_dir.strip() != "/")  # prevent rm -rf /
         assert(os.path.exists(self.init))
         assert(os.path.exists(self.workload))
-        assert (os.path.exists(self.checker))
+        if not self.legal_replay:
+            assert(os.path.exists(self.checker))
 
     def create_dirs(self):
         # create snapshot and trace directory
 
         subprocess.call(("sudo rm -rf %s/" % (self.storage_dir)).split(' '))
         subprocess.call("mkdir -p %s" % (self.result_dir), shell=True)
+        subprocess.call("mkdir -p %s" % (self.err_dir), shell=True)
         subprocess.call("mkdir -p %s" % (self.trace_dir), shell=True)
         subprocess.call("mkdir -p %s" % (self.snapshot_dir), shell=True)
         subprocess.call("mkdir -p %s" % (self.prefix_replay_dir), shell=True)

@@ -140,7 +140,7 @@ class CrashStateGenerator(object):
             self.crash_states.remove(r)
         to_remove = []
         total_crash_states = len(self.crash_states)
-        print("Total %d crash states" % len(self.crash_states))
+        print("Total %d unique crash states" % len(self.crash_states))
 
         for i in range(len(self.crash_states)):
             #if i % 10 == 0:
@@ -167,7 +167,7 @@ class CrashStateGenerator(object):
         # for cs in self.crash_states:
         #     print(cs)
         # exit(0)
-        print("Total %d crash states to explore" % len(self.crash_states))
+        print("Total %d crash states after static pruning" % len(self.crash_states))
 
         #calculate transition matrix & compute optimal exploration path
         
@@ -203,7 +203,9 @@ class CrashStateGenerator(object):
         num_states_explored = 0
         reorder_bugs = []
         atomic_bugs = []
+        current_atomic = []
         i = 0
+        skipped = 0
         for state in self.crash_states:
             #print(state)
             i += 1
@@ -219,9 +221,15 @@ class CrashStateGenerator(object):
                 retval = crash_func(state)
                 if retval:
                     succs = list(self.exec_graph.graph.successors(state.syscalls[-1]))
-                    atomic_bugs.append(state)
+                    current_atomic.append(state.syscalls[-1])
                     if retval == "PFS Unavailable":
                         time_deducted += config.timeout
+                else:
+                    if len(current_atomic) > 0:
+                        current_atomic.append(state.syscalls[-1])
+                        real_atomic = self.auxiliary_explore_atomic(crash_func, state, current_atomic)
+                        atomic_bugs.append(real_atomic)
+                    current_atomic = []
 
             # reordered crash state (call_1 -> call_2)
             else:
@@ -248,17 +256,22 @@ class CrashStateGenerator(object):
                             state_pruned = True
                             break
                 if state_pruned and config.pruning:
+                    skipped += 1
                     continue
+                elif skipped != 0:
+                    if config.verbose:
+                        print("%d crash states pruned dynamically" % skipped)
+                    skipped = 0
 
                 num_states_explored += 1
                 retval = crash_func(state)
                 if retval:
                     #reorder_bugs.append(state.reorder[0])
-                    real_reorder = self.auxiliary_explore(crash_func, state)
+                    real_reorder = self.auxiliary_explore_reorder(crash_func, state)
                     for call in real_reorder:
                         reorder_bugs.append((call, state.reorder[1]))
                     #reorder_bugs += state.reorder[0]
-                    print(reorder_bugs)
+                    #print(reorder_bugs)
                     if retval == "PFS Unavailable":
                         time_deducted += config.timeout
 
@@ -270,31 +283,70 @@ class CrashStateGenerator(object):
 
 
         #weakfs_bugs = len(reorder_bugs) + len(atomic_bugs)
-        ext3_dj_bugs = len(atomic_bugs) + len([pair for pair in reorder_bugs if pair[0].service.name != pair[1].service.name])
+        bugs = len(atomic_bugs) + len([pair for pair in reorder_bugs if pair[0].service.name != pair[1].service.name])
 
         #def is_overwrite(syscall):
         #    return isinstance(syscall, Pwrite) and syscall.func_name != 'append'
         #ext3_oj_bugs = len(atomic_bugs) + len([pair for pair in reorder_bugs if pair[0].service.name != pair[1].service.name
         #                                       or (is_overwrite(pair[0]) and is_overwrite(pair[1]))])
 
-        print("Total %d crash states, %d states explored, %d vulnerabilities in ext3-dj"
-              % (total_crash_states, num_states_explored, ext3_dj_bugs))
+        print("\n==== ParaCrash performance ====")
+        print("Total %d crash states, %d states explored, %d vulnerabilities"
+              % (total_crash_states, num_states_explored, bugs))
         print("Total exploration time: %.2f, deducted time %.2f" % (((time_end - time_start) - time_deducted), time_deducted))
-        #self.exec_graph.dump(os.path.join(self.result_dir, "exec_graph.gv"), reorder_bugs, atomic_bugs)
 
-    def auxiliary_explore(self, crash_func, state):
+        false_positive = []
+        for reorder in reorder_bugs:
+            if reorder[0] in [__ for _ in atomic_bugs for __ in _]:
+                false_positive.append(reorder)
+        for fp in false_positive:
+            reorder_bugs.remove(fp)
+
+        print("\n==== Bug report ====")
+        if len(reorder_bugs) == 0:
+            print("No Re-order bugs")
+        else:
+            print("Re-order bugs")
+            for reorder in reorder_bugs:
+                print(reorder)
+
+        if len(atomic_bugs) == 0:
+            print("No Atomicity bugs")
+        else:
+            print("Atomicity bugs")
+            for atomic in atomic_bugs:
+                print(atomic)
+        self.exec_graph.dump(os.path.join(self.result_dir, "exec_graph.gv"), reorder_bugs, atomic_bugs)
+
+    def auxiliary_explore_reorder(self, crash_func, state):
         real_reorder = []
         reordering = state.reorder[0]
         
         for call in reordering:
             new_calls = state.base_state.syscalls
             aux_state = CrashState([s for s in new_calls if s!=call], base_state=state.base_state, reorder=[call], dependent_calls=[call])
-            print("Aux:", end="")
-            retval = crash_func(aux_state)
+            if config.verbose:
+                print("Aux:", end="")
+            retval = crash_func(aux_state, aux=True)
             if retval:
                 real_reorder.append(call)
-        print(real_reorder)
+        # if config.verbose:
+        #     print(real_reorder)
         return real_reorder
+
+    def auxiliary_explore_atomic(self, crash_func, state, atomics):
+        real_atomic = atomics
+        for call in atomics[1:-1]:
+            new_calls = state.syscalls
+            aux_state = CrashState([s for s in new_calls if s!=call])
+            if config.verbose:
+                print("Aux:", end="")
+            retval = crash_func(aux_state, aux=True)
+            if not retval:
+                real_atomic.remove(call)
+        # if config.verbose:
+        #     print(real_atomic)
+        return real_atomic
 
 
 

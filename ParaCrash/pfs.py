@@ -555,7 +555,7 @@ class POSIX_Workload:
     # create syscalls in time order
     def create_syscalls(self, files, mode="strace"):
         lines = []
-        for myfile in filter(lambda f: self.name in f, files):
+        for myfile in filter(lambda f: self.name in os.path.basename(f), files):
             f = open(myfile)
             lines += [line for line in f.readlines() if not "exited with" in line]
             f.close()
@@ -634,8 +634,8 @@ class OPMapping:
                     elif aggregation and candidate.offset <= l_off and candidate.offset + candidate.length >= l_off + l_length:
                         succeed = True
                         self.rev_mapping[candidate].append(syscall)
-                        if config.verbose:
-                            print("Non-exact matching calls!! Consider N-to-1 mapping!!", candidate)
+                        #if config.verbose:
+                        #    print("Non-exact matching calls!! Consider N-to-1 mapping!!", candidate)
                         # last matched client-side call
                         if candidate.offset + candidate.length == l_off + l_length:
                             write_ops[server].pop(i)

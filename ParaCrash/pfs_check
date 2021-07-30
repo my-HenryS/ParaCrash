@@ -19,9 +19,22 @@ from pfs_record import pfs_record
 def prefix_comparison(pfs, prefix_dir):
     prefixes = [os.path.join(prefix_dir, o) for o in os.listdir(prefix_dir) if os.path.isdir(os.path.join(prefix_dir, o))]
     for prefix in prefixes:
-        #print(prefix)
-        output = subprocess.run("diff %s/ %s/" % (prefix, pfs.mount_point), shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-        if output.returncode == 0:
+        success = True
+        # check directory strcutures
+        output = subprocess.run("diff <(cd %s; find . | sort) <(cd %s; find . | sort)" % (prefix, pfs.mount_point), shell=True, executable="/bin/bash", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        success = output.returncode == 0
+        if not success:
+            continue
+        # check file contents
+        output = subprocess.run("diff %s/ %s/" % (prefix, pfs.mount_point), shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        success =  output.returncode == 0
+        if success:
+            return True
+    # additional check for baseline model for hdf5
+    if config.is_hdf5:
+        output = subprocess.run("h5dump %s/*.h5" % (pfs.mount_point), shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        success =  output.returncode == 0
+        if success:
             return True
     return False
 
@@ -38,8 +51,11 @@ def pfs_check(pfs):
 
     global last_state
     last_state = None
-    def __perform_crash(crash_state):
+    global err_no
+    err_no = 0
+    def __perform_crash(crash_state, aux=False):
         global last_state
+        global err_no
 
         # opt restart
         blocklist = None  # list of names 
@@ -77,30 +93,30 @@ def pfs_check(pfs):
         # process = subprocess.call("tree .", cwd=pfs.mount_point, shell=True)
         # return 0
         try:
-            #time.sleep(10)
             last_state = None
+            success = False
             # exec here helps killing checker process when timeout
             # subprocess.call("tree . && cat *", cwd=pfs.mount_point, shell=True)
-            process = subprocess.Popen("exec "+config.checker, cwd=pfs.mount_point, shell=True, stderr=subprocess.PIPE)
-            stdout, stderr = process.communicate(timeout=config.timeout)
-            #process = subprocess.run("exec "+config.checker, cwd=pfs.mount_point, shell=True, stderr=subprocess.PIPE)
-  
-            #print(stdout, stderr, process.returncode, pfs.mount_point)
-            if process.returncode != 0:
+            if config.legal_replay:
+                success = prefix_comparison(pfs, os.path.join(config.snapshot_dir, config.prefix_replay_dir))
+            else:
+                process = subprocess.Popen("exec "+config.checker, cwd=pfs.mount_point, shell=True, stderr=subprocess.PIPE)
+                stdout, stderr = process.communicate(timeout=config.timeout)
+                success = process.returncode == 0
+
+            if not success:
                 if config.verbose:
                     print(Fore.RED + 'Test failed:' + Style.RESET_ALL+str(crash_state))
-                err_f.write("\n =========== "+str(crash_state)+" =========== \n")
-                err_f.write(stderr.decode())
-                err_f.flush()
-                if config.legal_replay:
-                    pfs_stop(pfs)
-                    pfs_restore(pfs)
-                    crash_state.emulate()
-                    pfs_start(pfs)
-                    if prefix_comparison(pfs, os.path.join(config.snapshot_dir, config.prefix_replay_dir)):
-                        if config.verbose:
-                            print(Fore.RED + 'Is Application Bug\n' + Style.RESET_ALL+str(crash_state))
-                        err_f.write("\n Is Application Bug \n")
+
+                if not aux:
+                    err_f.write("\n =========== "+str(crash_state)+" =========== \n")
+                    if not config.legal_replay:
+                        err_f.write(stderr.decode())
+                    err_f.flush()
+
+                    subprocess.call("mkdir -p %s/%d" % (config.err_dir, err_no), shell=True)
+                    subprocess.Popen("cp %s/* %s/%d " % (pfs.mount_point, config.err_dir, err_no), shell=True, stderr=subprocess.PIPE)
+                    err_no +=1
 
             else:
                 last_state = crash_state
@@ -108,7 +124,7 @@ def pfs_check(pfs):
                     print(Fore.GREEN + 'Test passed:' + Style.RESET_ALL+str(crash_state))
                 else:
                     err_f.write('Test passed:' + str(crash_state)+"\n")
-            return process.returncode
+            return not success
 
         except subprocess.TimeoutExpired:
             process.kill()
@@ -130,12 +146,22 @@ def pfs_check(pfs):
             pfs_restart_clean(pfs)
             exit(0)
 
-    crash_states = csg.crash(crash_func=lambda cs: __perform_crash(cs))
+    crash_states = csg.crash(crash_func=lambda cs, aux=False: __perform_crash(cs, aux))
     pfs_stop(pfs)
     pfs_restore(pfs)
     pfs_start(pfs)
 
+    print("\n==== All I/O calls ====")
+    if config.is_hdf5:
+        for syscall in filter(lambda o: isinstance(o, Pwrite), pfs.syscalls):
+            tag = pfs.obj_mapping.query(syscall)
+            print("%s %s" % (syscall.short(), tag))
+    else:
+        for syscall in pfs.syscalls:
+            print("%s" % syscall)
+
     err_f.close()
+    print("\n==== End check ====\n")
 
 
 if __name__ == '__main__':
@@ -155,9 +181,9 @@ if __name__ == '__main__':
     parser.add_argument('-NR', '--non-restart', dest="restart", action='store_false')
     parser.add_argument('-p', '--parallel', default=0, help='parallel workloads', type=int)
     parser.add_argument("--recorder-path", dest="recorder_path",
-                        default="/home/jhsun/local/lib/librecorder.so", help="path to recorder lib")
+                        default="/home/sc21/local/lib/librecorder.so", help="path to recorder lib")
     parser.add_argument("--h5scan-path", dest="h5scan_path",
-                        default="/home/jhsun/software/PFScheck/h5scan/tool/h5check", help="path to h5scan exec")
+                        default="/home/sc21/software/ParaCrash/h5inspect/tool/h5check", help="path to h5scan exec")
     parser.add_argument("-h5", "--hdf5", dest="is_hdf5", action='store_true')
     parser.add_argument("-in", "--incremental", dest="is_inc", action='store_true')
     parser.add_argument("-opt", "--optimized", dest="opt_explore", action='store_true')

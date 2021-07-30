@@ -67,5 +67,5 @@ for i in range(1, n+1):
 
 paracrash_config["global"]["services"] = paracrash_config["global"]["services"][:-1]
 
-with open("/home/jhsun/software/PFScheck/configs/vm2_beegfs_%d.cfg" % (n*2), 'w') as configfile:
+with open("/home/sc21/software/ParaCrash/ParaCrash/configs/vm2_beegfs_%d.cfg" % (n*2), 'w') as configfile:
     paracrash_config.write(configfile)

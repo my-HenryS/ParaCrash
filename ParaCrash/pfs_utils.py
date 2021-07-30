@@ -300,8 +300,8 @@ class Syscall(object):
         if new_syscalls == None or len(new_syscalls) == 0:
             if func_name not in Syscall.non_supported_calls:
                 Syscall.non_supported_calls.append(func_name)
-                if config.verbose:
-                    print("%s not generating useful syscall" % func_name)
+                # if config.verbose:
+                #     print("%s not generating useful syscall" % func_name)
 
         if not new_syscalls:
             return
@@ -397,13 +397,10 @@ class Pwrite(Syscall):
         self.append = False
 
     def real_perform(self):
+        if not os.path.exists(self.path):
+            f = open(self.path, 'a').close()
+            os.chmod(self.path, 0o777)
         f = os.open(self.path, os.O_RDWR)
-        # readBytes = os.pread(f, self.length, self.offset)
-        # diff = []
-        # for i in range(len(list(readBytes))):
-        #     if list(readBytes)[i] != list(self.content)[i]:
-        #         diff.append(i+self.offset)
-        # print(self.gid, diff)
         bytesWritten = os.pwrite(f, self.content, int(self.offset))
         os.close(f)
 
@@ -781,7 +778,7 @@ def restore_snapshot(pfs_service):
 def save_workload(pfs, workload, snapshot_dir):
     try:
         process = subprocess.Popen("cp -r %s/* %s" % (workload.path, snapshot_dir), shell=True, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate(timeout=4)
+        stdout, stderr = process.communicate(timeout=30)
         #subprocess.call("ls %s/" % (workload.path), shell=True, stderr=subprocess.PIPE)
         #subprocess.call("cp -r %s/* %s" % (workload.path, snapshot_dir), shell=True, stderr=subprocess.PIPE)
 
