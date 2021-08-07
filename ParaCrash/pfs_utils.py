@@ -334,8 +334,11 @@ class Link(Syscall):
         self.destname = destname
 
     def real_perform(self):
-        retval = os.link(self.srcname, self.destname)
-        return retval
+        try:
+            retval = os.link(self.srcname, self.destname)
+            return retval
+        except PermissionError:
+            subprocess.call("sudo ln -s %s %s" % (self.srcname, self.destname), shell=True)
 
     def __str__(self):
         return '%d %s(%s) = %s' % (self.gid, self.func_name, ", ".join([self.srcname, self.destname]), str(self.retval))
@@ -447,7 +450,10 @@ class Mkdir(Syscall):
         self.mode = int(mode)
 
     def real_perform(self):
-        os.makedirs(self.path, self.mode, exist_ok=True)
+        try:
+            os.makedirs(self.path, self.mode, exist_ok=True)
+        except PermissionError:
+            subprocess.call("sudo mkdir -p %s" % self.path, shell=True)
 
     def __str__(self):
         return '%d %s(%s) = %s' % (self.gid, self.func_name, ", ".join([self.path, str(self.mode)]), str(self.retval))
@@ -459,13 +465,8 @@ class Fsync(Syscall):
         self.path = path
         self.is_datasync = False
 
+    # do not need to perform fsync; since we do not crash when we are testing
     def real_perform(self):
-        # f = os.open(self.path, os.O_RDWR)
-        # if self.is_datasync:
-        #     os.fdatasync(f)
-        # else:
-        #     os.fsync(f)
-        # os.close(f)
         pass
 
     def __str__(self):
@@ -649,11 +650,12 @@ def pfs_start(pfs, whitelist=[], blocklist=None):
         time.sleep(0.5)
 
     elif pfs.fstype == "glusterfs":
-        subprocess.call("sudo gluster volume start myvol3 --mode=script",
+        host = pfs.services[0].host
+        subprocess.call("sudo gluster volume start myvol1 --mode=script",
                         shell=True,  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # FIXME generalize volume string in the mount command
-        subprocess.call("sudo mount -t glusterfs hpc1:/myvol3 %s" % pfs.mount_point, shell=True)
-        time.sleep(0.1)
+        subprocess.call("sudo mount -t glusterfs %s:/myvol1 %s" % (host, pfs.mount_point), shell=True)
+        time.sleep(0.5)
 
 # stop pfs service
 
@@ -682,7 +684,7 @@ def pfs_stop(pfs, whitelist=[], blocklist=None):
     elif pfs.fstype == "glusterfs":
         #subprocess.call("sudo kill -9 $(pidof glusterfs)", shell=True)
         subprocess.call("sudo umount %s" % pfs.mount_point, shell=True)
-        subprocess.call("sudo gluster volume stop myvol3 --mode=script",
+        subprocess.call("sudo gluster volume stop myvol1 --mode=script",
                         shell=True,  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
@@ -767,6 +769,8 @@ def restore_snapshot(pfs_service):
             subprocess.call("sudo rm -rf %s/.glusterfs/" % os.path.join(pfs_service.path, data_dir), shell=True)
         subprocess.call("sudo tar --xattrs --xattrs-include='*' -xf %s.tar -C %s"
                         % (snapshot_dir+pfs_service.name, pfs_service.path), shell=True)
+        subprocess.call("sudo chown -R $USER %s" % pfs_service.path, shell=True)
+        subprocess.call("sudo chmod -R 777 %s" % pfs_service.path, shell=True)
 
     elif pfs_service.pfs.fstype == "orangefs":
         for data_dir in pfs_service.data_dirs:

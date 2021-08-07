@@ -105,5 +105,5 @@ config_path = "%s/ParaCrash/configs/" % paracrash_path
 if not os.path.exists(config_path):
     os.mkdir(config_path)
 
-with open("%s/vm2_orangefs_%d.cfg" % (config_path, n*2), 'w') as configfile:
+with open("%s/orangefs_%d.cfg" % (config_path, n*2), 'w') as configfile:
     paracrash_config.write(configfile)

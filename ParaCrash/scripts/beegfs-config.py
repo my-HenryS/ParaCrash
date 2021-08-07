@@ -84,5 +84,5 @@ paracrash_config["global"]["services"] = paracrash_config["global"]["services"][
 config_path = "%s/ParaCrash/configs/" % paracrash_path
 if not os.path.exists(config_path):
     os.mkdir(config_path)
-with open("%s/vm2_beegfs_%d.cfg" % (config_path, n*2), 'w') as configfile:
+with open("%s/beegfs_%d.cfg" % (config_path, n*2), 'w') as configfile:
     paracrash_config.write(configfile)

@@ -1,18 +1,22 @@
-kill -9 $(pidof pvfs2-server)
-sudo kill -9 $(pidof pvfs2-client)
-sudo kill -9 $(pidof pvfs2-client-core)
+volname=myvol1
+host=$1
+n=$2
 
-config=$HOME/local/opt/orangefs/etc/orangefs-server.conf
+sudo gluster volume stop $volname --mode=script
+sudo gluster volume delete $volname --mode=script
+sudo umount /mnt/glusterfs
+sudo rm -rf /data/glusterfs/$volname/
 
-pvfs2-server $config -f -a vm2-storage-2
-pvfs2-server $config -f -a vm2-storage-1
-pvfs2-server $config -f -a vm2-meta-1
-pvfs2-server $config -f -a vm2-meta-2
+for i in $(seq 1 $n);
+    do mkdir -p /data/glusterfs/$volname/brick${i}/brick
+done
 
-pvfs2-server $config -a vm2-storage-2
-pvfs2-server $config -a vm2-storage-1
-pvfs2-server $config -a vm2-meta-1
-pvfs2-server $config -a vm2-meta-2
+sudo gluster volume create $volname stripe 2 $host:/data/glusterfs/$volname/brick1/brick $host:/data/glusterfs/$volname/brick2/brick force
+sudo gluster volume set $volname storage.health-check-interval 0
+sudo gluster volume set $volname cluster.stripe-block-size 128KB
 
-#sudo modprobe orangefs
-sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH $HOME/local/sbin/pvfs2-client
+sudo gluster volume start $volname
+sudo mount -t glusterfs $host:/$volname /mnt/glusterfs
+
+sudo chown -R $USER /mnt/glusterfs
+# sudo chmod -R 755 /data/glusterfs/

@@ -36,9 +36,10 @@ def pfs_record():
         workload = MPI_Workload(pfs=pfs, path=pfs.mount_point, num_ranks=config.parallel)
     workload.build_fsztable()
 
-    #for service in pfs.services:
-    #   subprocess.call("sudo chown -R $USER %s" % service.path, shell=True)
-    #    subprocess.call("sudo chmod -R 777 %s" % service.path, shell=True)
+    if pfs.fstype == "glusterfs":
+        for service in pfs.services:
+            subprocess.call("sudo chown -R $USER %s" % service.path, shell=True)
+            subprocess.call("sudo chmod -R 777 %s" % service.path, shell=True)
 
     pfs.build_fsztable()
     pfs.entryinfo()

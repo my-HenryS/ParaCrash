@@ -28,6 +28,7 @@ python3 beegfs-config.py [hostname] 2
 # startup beegfs in multi-mode
 sudo mkdir -p /data/beegfs
 sudo chown -R $USER /data/beegfs/
+sudo mkdir -p /mount/beegfs
 ./beegfs.sh 2
 ```
 
@@ -69,7 +70,7 @@ make
 
 ## 4. Running ParaCrash
 
-### 4.1 POSIX workloads
+### 4.1 POSIX Workloads
 
 ```shell
 ## load packages
@@ -78,9 +79,9 @@ spack load py-numpy
 ## run ParaCrash with the generate config files
 ## check crash-consistency bugs of the ARVR workload
 cd ~/software/ParaCrash/ParaCrash
-./pfs_check -f configs/vm2_beegfs_4.cfg -d workloads/arvr -m check -r
+./pfs_check -f configs/beegfs_4.cfg -d workloads/arvr -m check -r
 ## add -NR for faster exploration, but it may report false positives
-## ./pfs_check -f configs/vm2_beegfs_4.cfg -d workloads/arvr -m check -r -NR
+## ./pfs_check -f configs/beegfs_4.cfg -d workloads/arvr -m check -r -NR
 
 ## output
 Running in check mode
@@ -108,7 +109,7 @@ ls workloads/arvr/result/
 
 
 
-### 4.2 HDF5 workloads
+### 4.2 HDF5 Workloads
 
 ```shell
 ## load packages
@@ -117,7 +118,7 @@ spack load py-h5py
 ## run ParaCrash with the generate config files
 ## check crash-consistency bugs of the ARVR workload
 cd ~/software/ParaCrash/ParaCrash
-./pfs_check -f configs/vm2_beegfs_4.cfg -d workloads/hdf5-create -m check -r -h5
+./pfs_check -f configs/beegfs_4.cfg -d workloads/hdf5-create -m check -r -h5
 
 ## detailed logs
 ls workloads/arvr/result/
@@ -126,11 +127,11 @@ ls workloads/arvr/result/
 # errs.log is the err log
 ```
 
-### 4.3 Interpreting results
+### 4.3 Interpreting Results
 For example, the ParaCrash bug report of hdf5-create has the following two sections. It shows that the operation pwrite64:8 has to be persisted before pwrite64:12 to avoid consistency bugs. In the 2nd section, we show the mapping from HDF5 objects to each I/O call reported by h5inspect. Specifically, pwrite64:8 modifies b-tree nodes and local heap; and pwrite64:12 modifies symbol table node. By combining these two sections, ParaCrash shows that writing b-tree nodes and local heap should be persisted before the write to symbol table node. 
 
 ```shell
-$ ./pfs_check -f configs/vm2_beegfs_4.cfg -d workloads/hdf5-create/ -m check -r -NR -h5
+$ ./pfs_check -f configs/beegfs_4.cfg -d workloads/hdf5-create/ -m check -r -NR -h5
 ...
 ==== Bug report ====
 Re-order bugs
@@ -144,7 +145,7 @@ pwrite64:12 [('_GROUP /bar/', 'SYMBOL_TABLE')]
 ...
 ```
 
-## 5. OrangeFS installation
+## 5. OrangeFS Installation
 ```shell
 # install dependencies
 sudo apt install flex bison perl
@@ -158,6 +159,7 @@ make -j
 sudo make install
 sudo modprobe orangefs
 sudo chown -R $USER /opt/orangefs/
+sudo mkdir /mount/orangefs
 
 # add /opt/orangefs/lib to $LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/orangefs/lib
@@ -166,11 +168,41 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/orangefs/lib
 sudo mkdir /data/orangefs/
 sudo chown -R $USER /data/orangefs/
 sudo chown -R $USER /var/log/
+
+cd $PARACRASH_PATH/ParaCrash/scripts
 python3 orangefs-config.py [hostname] 2
 ./orangefs.sh [hostname] 2
 sudo chown -R $USER /mnt/orangefs
 
 # run workload
 # do not add -NR for OrangeFS
-./pfs_check -f configs/vm2_orangefs_4.cfg -d workloads/wal -m check -r
+cd $PARACRASH_PATH/ParaCrash/
+./pfs_check -f configs/orangefs_4.cfg -d workloads/wal -m check -r
+```
+
+## 6. GlusterFS Installation
+```shell
+# install GlusterFS packages 
+wget -O - https://download.gluster.org/pub/gluster/glusterfs/5/rsa.pub | sudo apt-key add -
+sudo apt update
+sudo apt install glusterfs-server
+sudo mkdir -p /data/glusterfs/
+sudo chown -R $USER /data/glusterfs/
+sudo mkdir /mount/glusterfs
+
+# start gluster daemon
+sudo systemctl start glusterd
+
+# start glusterfs and generate config files
+# here we provide a config file for a two-server GlusterFS
+cd $PARACRASH_PATH/ParaCrash/scripts/
+./glusterfs.sh [hostname] 2
+cp gluster_4.cfg $PARACRASH_PATH/ParaCrash/configs
+
+# run workload
+# do not add -NR for GlusterFS
+# for GlusterFS, ParaCrash has to run in sudo mode
+# this is because we have to set some trusted xattr for GlusterFS files during replay
+cd $PARACRASH_PATH/ParaCrash/
+sudo env PARACRASH_PATH=$PARACRASH_PATH LD_LIBRARY_PATH=$LD_LIBRARY_PATH ./pfs_check -f configs/gluster_4.cfg -d workloads/cr -m check -r 
 ```
