@@ -1,0 +1,7 @@
+*.po
+*.o
+.deps
+*.so
+configs/
+*/result/
+*/storage/
