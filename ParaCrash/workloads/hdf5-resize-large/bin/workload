@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+
+import h5py
+import numpy as np
+
+f = h5py.File('resize.h5', 'r+')
+#f = h5py.File('test.hdf5', 'r+')
+dset = f['test']
+
+size_1 = 800
+size_2 = 1200
+
+dset.resize((size_2, size_2))
+
+#f.flush()
+array = np.random.rand(size_2-size_1, size_2-size_1)*10
+dset[size_1:, size_1:] = array
+#f.flush()
+#dset.resize((400, 400))
+
+#dset.resize((size0, size0))
+#dset[:,-1]= 1
+
+
+f.close()
+
+
+# attribute

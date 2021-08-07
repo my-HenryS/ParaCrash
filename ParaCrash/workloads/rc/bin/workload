@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+import os
+
+os.rename("A", "B")
+
+f = os.open("B/foo", os.O_RDWR | os.O_CREAT)
+os.close(f)
+

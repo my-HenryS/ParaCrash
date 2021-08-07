@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+
+import h5py
+import numpy as np
+
+
+f = h5py.File('resize.h5', 'w')
+
+bar = f.create_group("bar")
+foo = f.create_group("foo")
+array = np.random.rand(200,200)*10
+for i in range(2):
+    dset = foo.create_dataset('test_%d' % i, (200, 200), maxshape=(None, None), dtype='i', chunks=(100, 100), data=array)
+
+array = np.random.rand(200,200)*10
+dset = bar.create_dataset('test2', (200, 200), maxshape=(None, None), dtype='i', chunks=(100, 100), data=array)
+f.close()

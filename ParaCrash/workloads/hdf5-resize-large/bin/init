@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+
+import h5py
+import numpy as np
+
+
+f = h5py.File('resize.h5', 'w')
+
+size_1 = 800
+array = np.random.rand(size_1, size_1)*10
+dset = f.create_dataset('test', (size_1, size_1), maxshape=(None, None), dtype='i', chunks=(100, 100), data=array)
+
+array = np.random.rand(200, 200)*10
+dset = f.create_dataset('test2', (200, 200), maxshape=(None, None), dtype='i', chunks=(100, 100), data=array)
+f.close()

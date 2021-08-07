@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+
+import h5py
+import numpy as np
+
+# initialized with two groups and two datasets
+
+# file
+f = h5py.File("create.h5", "r+")
+
+# open group bar
+bar = f['bar']
+#array = np.random.rand(300,300)*10
+
+# create dataset test2 under group bar
+array = np.full((100, 100), 2)
+bar.create_dataset('test2', (100, 100), dtype='i', chunks=True, data=array)
+
+
+f.close()

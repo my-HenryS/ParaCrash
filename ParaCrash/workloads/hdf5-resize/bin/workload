@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+
+
+import h5py
+import numpy as np
+
+f = h5py.File('resize.h5', 'r+')
+#f = h5py.File('test.hdf5', 'r+')
+dset = f['/bar/test2']
+
+dset.resize((300, 300))
+
+#f.flush()
+dset[-1,-1]= 1
+#f.flush()
+dset.resize((400, 400))
+
+#dset.resize((10000, 10000))
+dset[-1, -1]= 1
+
+
+f.close()
+
+
+# attribute 
