@@ -23,7 +23,7 @@ sudo apt install beegfs-mgmtd beegfs-meta beegfs-storage beegfs-client beegfs-ut
 pip3 install configobj configparser
 sudo chown -R $USER /etc/beegfs/
 cd ~/software/ParaCrash/ParaCrash/scripts
-python3 beegfs-config.py 2
+python3 beegfs-config.py [hostname] 2
 
 # startup beegfs in multi-mode
 sudo mkdir -p /data/beegfs
@@ -33,7 +33,7 @@ sudo chown -R $USER /data/beegfs/
 
 
 
-## 2. Software Dependencies
+## 3. Software Dependencies
 
 ```shell
 ## install spack dependencies
@@ -67,9 +67,9 @@ make
 
 
 
-## 3. Running ParaCrash
+## 4. Running ParaCrash
 
-### 3.1 POSIX workloads
+### 4.1 POSIX workloads
 
 ```shell
 ## load packages
@@ -108,7 +108,7 @@ ls workloads/arvr/result/
 
 
 
-### 3.2 HDF5 workloads
+### 4.2 HDF5 workloads
 
 ```shell
 ## load packages
@@ -126,7 +126,7 @@ ls workloads/arvr/result/
 # errs.log is the err log
 ```
 
-### 3.3 Interpreting results
+### 4.3 Interpreting results
 For example, the ParaCrash bug report of hdf5-create has the following two sections. It shows that the operation pwrite64:8 has to be persisted before pwrite64:12 to avoid consistency bugs. In the 2nd section, we show the mapping from HDF5 objects to each I/O call reported by h5inspect. Specifically, pwrite64:8 modifies b-tree nodes and local heap; and pwrite64:12 modifies symbol table node. By combining these two sections, ParaCrash shows that writing b-tree nodes and local heap should be persisted before the write to symbol table node. 
 
 ```shell
@@ -142,4 +142,35 @@ No Atomicity bugs
 pwrite64:8 [('_GROUP /bar/', 'BTREE_NODES'), ('_GROUP /bar/', 'LOCAL_HEAP'), ('GLOBAL', 'FREE_SPACE')]
 pwrite64:12 [('_GROUP /bar/', 'SYMBOL_TABLE')]
 ...
+```
+
+## 5. OrangeFS installation
+```shell
+# install dependencies
+sudo apt install flex bison perl
+sudo apt install libdb-dev libattr1-dev linux-headers-`uname -r`
+# install OrangeFS packages (linux kernel 4.15 recommended)
+wget http://download.orangefs.org/releases/2.9.7/source/orangefs-2.9.7.tar.gz
+tar -xf orangefs-2.9.7.tar.gz
+cd orangefs-2.9.7/
+./configure --prefix=/opt/orangefs --with-kernel=/usr/src/linux-headers-`uname -r`  -enable-shared
+make -j 
+sudo make install
+sudo modprobe orangefs
+sudo chown -R $USER /opt/orangefs/
+
+# add /opt/orangefs/lib to $LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/orangefs/lib
+
+# generate config files
+sudo mkdir /data/orangefs/
+sudo chown -R $USER /data/orangefs/
+sudo chown -R $USER /var/log/
+python3 orangefs-config.py [hostname] 2
+./orangefs.sh [hostname] 2
+sudo chown -R $USER /mnt/orangefs
+
+# run workload
+# do not add -NR for OrangeFS
+./pfs_check -f configs/vm2_orangefs_4.cfg -d workloads/wal -m check -r
 ```

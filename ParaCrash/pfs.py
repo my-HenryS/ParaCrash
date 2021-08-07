@@ -152,7 +152,7 @@ class PFS:
                 #for file in filter(lambda f: f not in self.entryinfo_list, files):
                 for file in files:
                     entryinfo_rawstring = \
-                        subprocess.check_output("pvfs2-viewdist -f %s" % file, shell=True)\
+                        subprocess.check_output("/opt/orangefs/bin/pvfs2-viewdist -f %s" % file, shell=True)\
                         .decode().strip().split("\n")
                     real_entryinfo = entryinfo_rawstring[-self.num_storage_servers:]
                     #print(entryinfo_rawstring)

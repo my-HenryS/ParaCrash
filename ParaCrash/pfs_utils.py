@@ -629,14 +629,16 @@ def pfs_start(pfs, whitelist=[], blocklist=None):
         to_restart = filter(lambda s: s.name not in whitelist, pfs.services) 
 
     if pfs.fstype == "orangefs":
+        n = len(list(filter(lambda s: s.stype == "metadata", pfs.services)))
         for service in pfs.services:
-            #print(service.name)
-            subprocess.call("pvfs2-server /home/jhsun/local/opt/orangefs/etc/orangefs-server_32.conf -a %s" %
-                            service.tag, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.call("sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH /home/jhsun/local/sbin/pvfs2-client", shell=True)
-        # FIXME generalize the mount command
-        time.sleep(0.5)
-        subprocess.call("sudo mount -t pvfs2 tcp://vm2:3334/orangefs %s" % pfs.mount_point, shell=True)
+            subprocess.call("/opt/orangefs/sbin/pvfs2-server /opt/orangefs/etc/orangefs-server_%d.conf -a %s" %
+                            (2*n, service.tag), shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.call("sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH /opt/orangefs/sbin/pvfs2-client", shell=True)
+        # wait for restart finish; now we just sleep; should check for callback
+        time.sleep(2)
+        # hostname is the host of the first metadata service
+        hostname = sorted(list(filter(lambda s: s.stype == "metadata", pfs.services)), key=lambda x: x.name)[0].host
+        subprocess.call("sudo mount -t pvfs2 tcp://%s/orangefs %s" % (hostname, pfs.mount_point), shell=True)
 
     elif pfs.fstype == "beegfs":    
         for service in to_restart:
@@ -694,11 +696,11 @@ def pfs_restart_clean(pfs, clean=True):
         for service in pfs.services:
             if clean:
                 subprocess.call("rm -rf %s/*" % service.path, shell=True)
-                subprocess.call("pvfs2-server /home/jhsun/local/opt/orangefs/etc/orangefs-server_16.conf  -f -a %s" %
+                subprocess.call("/opt/orangefs/sbin/pvfs2-server /opt/orangefs/etc/orangefs-server_4.conf  -f -a %s" %
                                 service.tag, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.call("pvfs2-server /home/jhsun/local/opt/orangefs/etc/orangefs-server_16.conf  -a %s" %
+            subprocess.call("/opt/orangefs/sbin/pvfs2-server /opt/orangefs/etc/orangefs-server_4.conf  -a %s" %
                             service.tag, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.call("sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH /home/jhsun/local/sbin/pvfs2-client", shell=True)
+        subprocess.call("sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH /opt/orangefs/sbin/pvfs2-client", shell=True)
         time.sleep(2)
 
 # save pfs snapshot
