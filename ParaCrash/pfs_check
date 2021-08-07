@@ -165,6 +165,8 @@ def pfs_check(pfs):
 
 
 if __name__ == '__main__':
+    paracrash_path = os.environ['PARACRASH_PATH']
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--config-file', dest="config_file", required=True, help="pfs configuration file")
     parser.add_argument('-d', '--work-dir',  dest="work_dir", required=True, help="workload directory")
@@ -181,9 +183,9 @@ if __name__ == '__main__':
     parser.add_argument('-NR', '--non-restart', dest="restart", action='store_false')
     parser.add_argument('-p', '--parallel', default=0, help='parallel workloads', type=int)
     parser.add_argument("--recorder-path", dest="recorder_path",
-                        default="/home/sc21/local/lib/librecorder.so", help="path to recorder lib")
+                        default="%s/Recorder/lib/librecorder.so" % paracrash_path, help="path to recorder lib")
     parser.add_argument("--h5scan-path", dest="h5scan_path",
-                        default="/home/sc21/software/ParaCrash/h5inspect/tool/h5check", help="path to h5scan exec")
+                        default="%s/h5inspect/tool/h5check" % paracrash_path, help="path to h5scan exec")
     parser.add_argument("-h5", "--hdf5", dest="is_hdf5", action='store_true')
     parser.add_argument("-in", "--incremental", dest="is_inc", action='store_true')
     parser.add_argument("-opt", "--optimized", dest="opt_explore", action='store_true')

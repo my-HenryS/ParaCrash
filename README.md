@@ -1,7 +1,13 @@
 # ParaCrash v1.0
 
-ParaCrash aims at testing crash vulnerabilities of parallel file systems and I/O libraries. Currently we implement ParaCrash for BeeGFS/OrangeFS/GlusterFS, and provide a number of test suites. 
-## 1. BeeGFS Installation
+ParaCrash aims at testing crash vulnerabilities of parallel file systems and I/O libraries. We release ParaCrash for BeeGFS/OrangeFS/GlusterFS, and provide a number of test suites. 
+## 1. Environment Variables
+```shell
+# set $PARACRASH_PATH to the root dir of ParaCrash
+export PARACRASH_PATH=$HOME/ParaCrash
+```
+
+## 2. BeeGFS Installation
 
 ```shell
 # install BeeGFS packages 
@@ -9,19 +15,19 @@ ParaCrash aims at testing crash vulnerabilities of parallel file systems and I/O
 wget -q https://www.beegfs.io/release/latest-stable/gpg/DEB-GPG-KEY-beegfs -O- | sudo apt-key add -
 wget https://www.beegfs.io/release/beegfs_7.2.3/dists/beegfs-deb9.list
 sudo mv beegfs-deb9.list /etc/apt/sources.list.d
+sudo apt update
 sudo apt install beegfs-mgmtd beegfs-meta beegfs-storage beegfs-client beegfs-utils beegfs-helperd
 
-# generate a four-server BeeGFS config files and ParaCrash config file 
+# generate a four-server BeeGFS config file and a ParaCrash config file 
+# beegfs config files is located at /etc/beegfs and the ParaCrash config files is located at $PARACRASH_PATH/config
+pip3 install configobj configparser
 sudo chown -R $USER /etc/beegfs/
 cd ~/software/ParaCrash/ParaCrash/scripts
 python3 beegfs-config.py 2
 
 # startup beegfs in multi-mode
-# set sysMountSanityCheckMS = 0 before start
 sudo mkdir -p /data/beegfs
 sudo chown -R $USER /data/beegfs/
-sudo service beegfs-helperd start
-sudo service beegfs-client restart
 ./beegfs.sh 2
 ```
 
@@ -120,4 +126,20 @@ ls workloads/arvr/result/
 # errs.log is the err log
 ```
 
+### 3.3 Interpreting results
+For example, the ParaCrash bug report of hdf5-create has the following two sections. It shows that the operation pwrite64:8 has to be persisted before pwrite64:12 to avoid consistency bugs. In the 2nd section, we show the mapping from HDF5 objects to each I/O call reported by h5inspect. Specifically, pwrite64:8 modifies b-tree nodes and local heap; and pwrite64:12 modifies symbol table node. By combining these two sections, ParaCrash shows that writing b-tree nodes and local heap should be persisted before the write to symbol table node. 
 
+```shell
+$ ./pfs_check -f configs/vm2_beegfs_4.cfg -d workloads/hdf5-create/ -m check -r -NR -h5
+...
+==== Bug report ====
+Re-order bugs
+(pwrite64:8, pwrite64:12)
+No Atomicity bugs
+
+==== All I/O calls ====
+...
+pwrite64:8 [('_GROUP /bar/', 'BTREE_NODES'), ('_GROUP /bar/', 'LOCAL_HEAP'), ('GLOBAL', 'FREE_SPACE')]
+pwrite64:12 [('_GROUP /bar/', 'SYMBOL_TABLE')]
+...
+```

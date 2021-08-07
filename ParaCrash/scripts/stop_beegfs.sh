@@ -14,5 +14,6 @@ do
 	sudo service beegfs-meta@node${i} stop
 done
 
+sudo service beegfs-client stop
 
 set +x

@@ -8,13 +8,19 @@ def clear(config):
         if config[k] == "":
             del config[k]
 
-n = int(sys.argv[1])
+if len(sys.argv) != 3:
+    print("Usage: python3 beegfs-config.py [host] [#_of_servers]")
+    exit(0)
+host = sys.argv[1]
+n = int(sys.argv[2])
+paracrash_path = os.environ['PARACRASH_PATH']
 
 base_meta_port = 8010
 pfs_config = ConfigObj("beegfs-meta.conf")
 for i in range(1, n+1):
     pfs_config_new = ConfigObj(pfs_config)
     pfs_config_new.filename = "/etc/beegfs/node%d.d/beegfs-meta.conf" % i
+    pfs_config_new["sysMgmtdHost"] = host
     pfs_config_new["connMetaPortTCP"] = base_meta_port + i - 1
     pfs_config_new["connMetaPortUDP"] = base_meta_port + i - 1
     pfs_config_new["storeMetaDirectory"] = "/data/beegfs/meta%d" % i 
@@ -28,6 +34,7 @@ pfs_config = ConfigObj("beegfs-storage.conf")
 for i in range(1, n+1):
     pfs_config_new = ConfigObj(pfs_config)
     pfs_config_new.filename = "/etc/beegfs/node%d.d/beegfs-storage.conf" % i
+    pfs_config_new["sysMgmtdHost"] = host
     pfs_config_new["connStoragePortTCP"] = base_storage_port + i - 1
     pfs_config_new["connStoragePortUDP"] = base_storage_port + i - 1
     pfs_config_new["storeStorageDirectory"] = "/data/beegfs/store%d" % i
@@ -35,6 +42,13 @@ for i in range(1, n+1):
         os.mkdir("/etc/beegfs/node%d.d/"  % i)
     clear(pfs_config_new)
     pfs_config_new.write()
+
+pfs_config = ConfigObj("beegfs-client.conf")
+pfs_config_new = ConfigObj(pfs_config)
+pfs_config_new["sysMgmtdHost"] = host
+pfs_config_new.filename = "/etc/beegfs/beegfs-client.conf"
+clear(pfs_config_new)
+pfs_config_new.write()
 
 
 paracrash_config = configparser.ConfigParser()
@@ -67,5 +81,8 @@ for i in range(1, n+1):
 
 paracrash_config["global"]["services"] = paracrash_config["global"]["services"][:-1]
 
-with open("/home/sc21/software/ParaCrash/ParaCrash/configs/vm2_beegfs_%d.cfg" % (n*2), 'w') as configfile:
+config_path = "%s/ParaCrash/configs/" % paracrash_path
+if not os.path.exists(config_path):
+    os.mkdir(config_path)
+with open("%s/vm2_beegfs_%d.cfg" % (config_path, n*2), 'w') as configfile:
     paracrash_config.write(configfile)
